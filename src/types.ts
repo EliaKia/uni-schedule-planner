@@ -1,4 +1,4 @@
-export type DayOfWeek = 'شنبه' | 'یکشنبه' | 'دوشنبه' | 'سهشنبه' | 'چهارشنبه';
+export type DayOfWeek = 'شنبه' | 'یکشنبه' | 'دوشنبه' | 'سه‌شنبه' | 'چهارشنبه';
 
 export type SessionRecurrence = 'ثابت' | 'فرد' | 'زوج';
 
@@ -41,4 +41,15 @@ export interface ScheduleCombination {
   sessions: ClassSession[];
   hasConflict: boolean;
   conflictDetails?: string[];
+  activeDays: DayOfWeek[];
+  freeDays: DayOfWeek[];
+  hasMorningClass8am: boolean;
+  instructors: string[];
 }
+
+export interface ScheduleFilterState {
+  // Mapping courseId to preferred instructor name (empty string or undefined = all instructors)
+  courseInstructors: Record<number, string>;
+  freeSlotsRequired: { day: DayOfWeek; startHour: number }[]; // slots that MUST be empty
+}
+

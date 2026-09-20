@@ -1,5 +1,16 @@
 import { COURSES } from '../data/coursesData';
-import { ClassSession, ScheduleCombination } from '../types';
+import { ClassSession, DayOfWeek, ScheduleCombination, ScheduleFilterState } from '../types';
+
+export const ALL_DAYS: DayOfWeek[] = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
+
+export const ALL_INSTRUCTORS: { name: string; courses: string[] }[] = [
+  { name: 'مصطفی میرجلیلی', courses: ['پدیده‌های انتقال (گروه ۱)'] },
+  { name: 'محمد امین جباره', courses: ['پدیده‌های انتقال (گروه ۲)', 'خواص فیزیکی مواد ۱ (گروه ۱)', 'مبانی و برنامه‌سازی کامپیوتر (گروه ۱)'] },
+  { name: 'غلامرضا ابراهیمی', courses: ['خواص فیزیکی مواد ۱ (گروه ۲)'] },
+  { name: 'احد ضابط', courses: ['شیمی فیزیک مواد (گروه ۱ و ۲)'] },
+  { name: 'محمدرضا رضائی', courses: ['مکانیک مواد (گروه ۱)'] },
+  { name: 'محمد حسن فرشیدی', courses: ['مکانیک مواد (گروه ۲)'] },
+];
 
 /**
  * Checks if two sessions conflict based on the university rules:
@@ -94,6 +105,18 @@ export function calculateAllCombinations(): {
 
             const hasConflict = conflictDetails.length > 0;
 
+            // Compute active and free days
+            const activeDaysSet = new Set<DayOfWeek>();
+            sessions.forEach((s) => activeDaysSet.add(s.day));
+            const activeDays = ALL_DAYS.filter((d) => activeDaysSet.has(d));
+            const freeDays = ALL_DAYS.filter((d) => !activeDaysSet.has(d));
+
+            // Check if there is any 8:00 AM class
+            const hasMorningClass8am = sessions.some((s) => s.startHour === 8);
+
+            // Instructors in this combination
+            const instructors = Array.from(new Set(selectedGroups.map((g) => g.instructor)));
+
             allCombinations.push({
               id: combinationCount,
               combinationIndex: combinationCount,
@@ -101,6 +124,10 @@ export function calculateAllCombinations(): {
               sessions,
               hasConflict,
               conflictDetails,
+              activeDays,
+              freeDays,
+              hasMorningClass8am,
+              instructors,
             });
           }
         }
@@ -117,3 +144,41 @@ export function calculateAllCombinations(): {
     invalidCombinations,
   };
 }
+
+/**
+ * Filter valid combinations based on the user's preferences:
+ * - Course instructor preferences: e.g. for course 4 (مکانیک مواد), user selects 'محمدرضا رضائی' or 'محمد حسن فرشیدی'
+ * - Free required time slots (slots that must have 0 classes)
+ */
+export function filterCombinations(
+  combinations: ScheduleCombination[],
+  filterState: ScheduleFilterState
+): ScheduleCombination[] {
+  return combinations.filter((comb) => {
+    // 1. Course Instructor filter:
+    for (const [courseIdStr, preferredInstructor] of Object.entries(filterState.courseInstructors)) {
+      if (!preferredInstructor) continue;
+      const courseId = Number(courseIdStr);
+      const selectedGroup = comb.selectedGroups.find((g) => g.courseId === courseId);
+      if (selectedGroup && selectedGroup.instructor !== preferredInstructor) {
+        return false;
+      }
+    }
+
+    // 2. Free required slots filter:
+    if (filterState.freeSlotsRequired.length > 0) {
+      for (const requiredFree of filterState.freeSlotsRequired) {
+        // If combination has ANY class in this slot (whether fixed, odd, or even), it's NOT free!
+        const hasSessionInSlot = comb.sessions.some(
+          (s) => s.day === requiredFree.day && s.startHour === requiredFree.startHour
+        );
+        if (hasSessionInSlot) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  });
+}
+

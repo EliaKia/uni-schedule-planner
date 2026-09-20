@@ -4,9 +4,10 @@ import { Clock, MapPin, User, Layers, CalendarRange } from 'lucide-react';
 
 interface TimetableProps {
   combination: ScheduleCombination;
+  stateNumber?: number;
 }
 
-const DAYS: DayOfWeek[] = ['شنبه', 'یکشنبه', 'دوشنبه', 'سهشنبه', 'چهارشنبه'];
+const DAYS: DayOfWeek[] = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
 
 interface TimeSlot {
   startHour: number;
@@ -24,7 +25,7 @@ const TIME_SLOTS: TimeSlot[] = [
   { startHour: 18, endHour: 20, label: '18:00', timeRange: '18:00 تا 20:00' },
 ];
 
-export const Timetable: React.FC<TimetableProps> = ({ combination }) => {
+export const Timetable: React.FC<TimetableProps> = ({ combination, stateNumber = 1 }) => {
   // Helper to get sessions in a specific day and time slot
   const getSessionsForSlot = (day: DayOfWeek, slot: TimeSlot): ClassSession[] => {
     return combination.sessions.filter(
@@ -33,9 +34,44 @@ export const Timetable: React.FC<TimetableProps> = ({ combination }) => {
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+    <div
+      id="timetable-export-container"
+      className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden p-1 sm:p-2"
+    >
+      {/* Visual Title Card for Image Export */}
+      <div className="p-3 sm:p-4 bg-slate-900 text-white rounded-xl mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm">
+            {stateNumber}
+          </div>
+          <div>
+            <h3 className="font-extrabold text-sm sm:text-base">
+              برنامه هفتگی انتخاب واحد — حالت شماره {stateNumber}
+            </h3>
+            <p className="text-[11px] text-slate-400">
+              ترکیب دروس بدون هیچ‌گونه تداخل زمانی (شامل تفکیک جلسات هفته‌های زوج و فرد)
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-[11px] font-bold self-start sm:self-center">
+          <span className="flex items-center gap-1 bg-blue-900/60 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded">
+            <span className="w-2 h-2 rounded-full bg-blue-400 inline-block"></span>
+            ثابت (هر هفته)
+          </span>
+          <span className="flex items-center gap-1 bg-amber-900/60 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded">
+            <span className="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
+            هفته فرد
+          </span>
+          <span className="flex items-center gap-1 bg-purple-900/60 text-purple-300 border border-purple-400/30 px-2 py-0.5 rounded">
+            <span className="w-2 h-2 rounded-full bg-purple-400 inline-block"></span>
+            هفته زوج
+          </span>
+        </div>
+      </div>
+
       {/* Scrollable Container with horizontal scroll and fixed hour column */}
-      <div className="overflow-x-auto scrollbar-custom relative">
+      <div className="overflow-x-auto scrollbar-custom relative rounded-xl border border-slate-200">
         <table className="w-full min-w-[920px] border-collapse text-right">
           <thead>
             <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-sm font-bold">
