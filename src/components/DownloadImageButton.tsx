@@ -21,20 +21,68 @@ export const DownloadImageButton: React.FC<DownloadImageButtonProps> = ({
       return;
     }
 
+    let offscreenWrapper: HTMLDivElement | null = null;
+
     try {
       setIsDownloading(true);
       setDownloadSuccess(false);
 
-      // Brief delay to ensure any layout renders
-      await new Promise((res) => setTimeout(res, 100));
+      // Create an off-screen desktop-width wrapper so mobile devices capture the full table
+      // without horizontal scroll clipping or sticky column overlap.
+      offscreenWrapper = document.createElement('div');
+      offscreenWrapper.dir = 'rtl';
+      offscreenWrapper.style.position = 'fixed';
+      offscreenWrapper.style.top = '0';
+      offscreenWrapper.style.left = '-9999px';
+      offscreenWrapper.style.width = '1240px';
+      offscreenWrapper.style.backgroundColor = '#ffffff';
+      offscreenWrapper.style.zIndex = '-100';
+      offscreenWrapper.style.pointerEvents = 'none';
 
-      const dataUrl = await toPng(element, {
+      const clone = element.cloneNode(true) as HTMLElement;
+      clone.style.width = '1240px';
+      clone.style.maxWidth = 'none';
+      clone.style.overflow = 'visible';
+      clone.style.borderRadius = '0px';
+      clone.style.padding = '16px';
+      clone.style.backgroundColor = '#ffffff';
+
+      // Remove horizontal overflow clipping on the scrollable table wrapper inside the clone
+      const scrollableDivs = clone.querySelectorAll<HTMLElement>('.overflow-x-auto, .overflow-hidden');
+      scrollableDivs.forEach((div) => {
+        div.style.overflow = 'visible';
+        div.style.maxWidth = 'none';
+      });
+
+      // Ensure sticky columns render cleanly in their normal table flow during full-width export
+      const stickyEls = clone.querySelectorAll<HTMLElement>('.sticky');
+      stickyEls.forEach((el) => {
+        el.style.position = 'static';
+      });
+
+      // Ensure dual class cards inside slots always render side-by-side (2 columns) like desktop
+      const dualGrids = clone.querySelectorAll<HTMLElement>('.grid-cols-1.sm\\:grid-cols-2');
+      dualGrids.forEach((grid) => {
+        grid.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+      });
+
+      offscreenWrapper.appendChild(clone);
+      document.body.appendChild(offscreenWrapper);
+
+      // Wait briefly for fonts and layout in the cloned node
+      await new Promise((res) => setTimeout(res, 150));
+
+      const exportWidth = clone.scrollWidth || 1240;
+      const exportHeight = clone.scrollHeight;
+
+      const dataUrl = await toPng(clone, {
         cacheBust: true,
+        width: exportWidth,
+        height: exportHeight,
+        canvasWidth: exportWidth * 2,
+        canvasHeight: exportHeight * 2,
         pixelRatio: 2, // High resolution for crisp text
         backgroundColor: '#ffffff',
-        style: {
-          borderRadius: '0px',
-        },
       });
 
       const link = document.createElement('a');
@@ -48,6 +96,9 @@ export const DownloadImageButton: React.FC<DownloadImageButtonProps> = ({
       console.error('Failed to generate image:', err);
       alert('متاسفانه در تولید تصویر خطایی رخ داد. لطفاً مجدداً امتحان کنید.');
     } finally {
+      if (offscreenWrapper && offscreenWrapper.parentNode) {
+        offscreenWrapper.parentNode.removeChild(offscreenWrapper);
+      }
       setIsDownloading(false);
     }
   };
