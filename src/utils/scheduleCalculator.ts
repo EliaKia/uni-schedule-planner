@@ -1,5 +1,12 @@
 import { COURSES } from '../data/coursesData';
-import { ClassSession, DayOfWeek, ScheduleCombination, ScheduleFilterState } from '../types';
+import {
+  ClassSession,
+  DayOfWeek,
+  ScheduleCombination,
+  ScheduleFilterState,
+  SessionRecurrence,
+  TASession,
+} from '../types';
 
 export const ALL_DAYS: DayOfWeek[] = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
 
@@ -181,4 +188,98 @@ export function filterCombinations(
     return true;
   });
 }
+
+/**
+ * Checks if a candidate TA session (day, startHour, endHour, recurrence) conflicts with a combination's sessions.
+ */
+export function checkTAConflictWithCombination(
+  combination: ScheduleCombination,
+  day: DayOfWeek,
+  startHour: number,
+  endHour: number,
+  recurrence: SessionRecurrence
+): { hasConflict: boolean; conflictingCourses: string[] } {
+  const dummySession: ClassSession = {
+    id: 'temp-ta',
+    courseId: 0,
+    courseName: 'حل تمرین',
+    groupId: 0,
+    instructor: '',
+    room: '',
+    day,
+    startHour,
+    endHour,
+    durationMinutes: 120,
+    recurrence,
+    sessionTitle: 'حل تمرین',
+    isTA: true,
+  };
+
+  const conflictingCourses: string[] = [];
+  for (const s of combination.sessions) {
+    if (doSessionsConflict(s, dummySession)) {
+      const label = s.isTA ? `حل تمرین ${s.courseName}` : `${s.courseName} (${s.recurrence})`;
+      if (!conflictingCourses.includes(label)) {
+        conflictingCourses.push(label);
+      }
+    }
+  }
+
+  return {
+    hasConflict: conflictingCourses.length > 0,
+    conflictingCourses,
+  };
+}
+
+/**
+ * Merges user-defined TA sessions into the 12 valid combinations based on 1-based state index (1..12).
+ */
+export function mergeTASessionsWithCombinations(
+  validCombinations: ScheduleCombination[],
+  taSessions: TASession[]
+): ScheduleCombination[] {
+  if (taSessions.length === 0) return validCombinations;
+
+  return validCombinations.map((comb, idx) => {
+    const stateNumber = idx + 1; // 1 to 12
+    const applicableTAs = taSessions.filter((ta) => ta.appliedStateIds.includes(stateNumber));
+
+    if (applicableTAs.length === 0) {
+      return comb;
+    }
+
+    const taClassSessions: ClassSession[] = applicableTAs.map((ta) => ({
+      id: ta.id,
+      courseId: ta.courseId,
+      courseName: ta.courseName,
+      groupId: 0,
+      instructor: ta.instructor?.trim() || 'تعیین‌نشده',
+      room: ta.room?.trim() || 'تعیین‌نشده',
+      day: ta.day,
+      startHour: ta.startHour,
+      endHour: ta.endHour,
+      durationMinutes: (ta.endHour - ta.startHour) * 60,
+      recurrence: ta.recurrence,
+      sessionTitle: 'کلاس حل تمرین',
+      isTA: true,
+    }));
+
+    const mergedSessions = [...comb.sessions, ...taClassSessions];
+
+    const activeDaysSet = new Set<DayOfWeek>();
+    mergedSessions.forEach((s) => activeDaysSet.add(s.day));
+    const activeDays = ALL_DAYS.filter((d) => activeDaysSet.has(d));
+    const freeDays = ALL_DAYS.filter((d) => !activeDaysSet.has(d));
+    const hasMorningClass8am = mergedSessions.some((s) => s.startHour === 8);
+
+    return {
+      ...comb,
+      sessions: mergedSessions,
+      activeDays,
+      freeDays,
+      hasMorningClass8am,
+    };
+  });
+}
+
 

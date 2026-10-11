@@ -1,10 +1,12 @@
 import React from 'react';
 import { DayOfWeek, ClassSession, ScheduleCombination } from '../types';
-import { Clock, MapPin, User, Layers, CalendarRange } from 'lucide-react';
+import { Clock, MapPin, User, Layers, CalendarRange, Plus, Trash2, GraduationCap } from 'lucide-react';
 
 interface TimetableProps {
   combination: ScheduleCombination;
   stateNumber?: number;
+  onQuickAddTA?: (day: DayOfWeek, startHour: number) => void;
+  onRemoveTASession?: (id: string) => void;
 }
 
 const DAYS: DayOfWeek[] = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
@@ -25,7 +27,12 @@ const TIME_SLOTS: TimeSlot[] = [
   { startHour: 18, endHour: 20, label: '18:00', timeRange: '18:00 تا 20:00' },
 ];
 
-export const Timetable: React.FC<TimetableProps> = ({ combination, stateNumber = 1 }) => {
+export const Timetable: React.FC<TimetableProps> = ({
+  combination,
+  stateNumber = 1,
+  onQuickAddTA,
+  onRemoveTASession,
+}) => {
   // Helper to get sessions in a specific day and time slot
   const getSessionsForSlot = (day: DayOfWeek, slot: TimeSlot): ClassSession[] => {
     return combination.sessions.filter(
@@ -49,12 +56,12 @@ export const Timetable: React.FC<TimetableProps> = ({ combination, stateNumber =
               برنامه هفتگی انتخاب واحد — حالت شماره {stateNumber}
             </h3>
             <p className="text-[11px] text-slate-400">
-              ترکیب دروس بدون هیچ‌گونه تداخل زمانی (شامل تفکیک جلسات هفته‌های زوج و فرد)
+              ترکیب دروس بدون هیچ‌گونه تداخل زمانی (شامل تفکیک جلسات هفته‌های زوج، فرد و حل تمرین)
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px] font-bold self-start sm:self-center">
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold self-start sm:self-center">
           <span className="flex items-center gap-1 bg-blue-900/60 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded">
             <span className="w-2 h-2 rounded-full bg-blue-400 inline-block"></span>
             ثابت (هر هفته)
@@ -66,6 +73,10 @@ export const Timetable: React.FC<TimetableProps> = ({ combination, stateNumber =
           <span className="flex items-center gap-1 bg-purple-900/60 text-purple-300 border border-purple-400/30 px-2 py-0.5 rounded">
             <span className="w-2 h-2 rounded-full bg-purple-400 inline-block"></span>
             هفته زوج
+          </span>
+          <span className="flex items-center gap-1 bg-emerald-900/60 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+            حل تمرین
           </span>
         </div>
       </div>
@@ -133,17 +144,46 @@ export const Timetable: React.FC<TimetableProps> = ({ combination, stateNumber =
                         className="p-2 border-l border-slate-200 last:border-l-0 align-top min-h-[155px] h-[155px] relative"
                       >
                         {sessions.length === 0 ? (
-                          <div className="w-full h-full min-h-[140px] rounded-xl border border-dashed border-slate-200/80 bg-slate-50/30 flex items-center justify-center">
-                            <span className="text-slate-300 text-xs font-light select-none">—</span>
+                          <div
+                            onClick={() => onQuickAddTA && onQuickAddTA(day, slot.startHour)}
+                            title={
+                              onQuickAddTA
+                                ? `افزودن کلاس حل تمرین در روز ${day} ساعت ${slot.timeRange}`
+                                : undefined
+                            }
+                            className={`group/cell w-full h-full min-h-[140px] rounded-xl border border-dashed border-slate-200/80 bg-slate-50/30 flex flex-col items-center justify-center transition-all ${
+                              onQuickAddTA
+                                ? 'hover:border-emerald-300 hover:bg-emerald-50/30 cursor-pointer'
+                                : ''
+                            }`}
+                          >
+                            <span className="text-slate-300 text-xs font-light select-none group-hover/cell:hidden">
+                              —
+                            </span>
+                            {onQuickAddTA && (
+                              <span className="hidden group-hover/cell:inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>افزودن حل تمرین</span>
+                              </span>
+                            )}
                           </div>
                         ) : sessions.length === 1 ? (
                           // Single Class Card (2 hours height)
-                          <SingleClassCard session={sessions[0]} slot={slot} />
+                          <SingleClassCard
+                            session={sessions[0]}
+                            slot={slot}
+                            onRemoveTA={onRemoveTASession}
+                          />
                         ) : (
-                          // Dual Class Card: Two alternating classes (e.g. فرد and زوج) in the same slot!
+                          // Dual Class Card: Two alternating classes (e.g. فرد and زوج, or class + TA) in the same slot!
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 h-full min-h-[140px]">
                             {sessions.map((session) => (
-                              <DualClassCard key={session.id} session={session} slot={slot} />
+                              <DualClassCard
+                                key={session.id}
+                                session={session}
+                                slot={slot}
+                                onRemoveTA={onRemoveTASession}
+                              />
                             ))}
                           </div>
                         )}
@@ -165,7 +205,7 @@ export const Timetable: React.FC<TimetableProps> = ({ combination, stateNumber =
                 20:00
               </td>
               <td colSpan={5} className="px-4 py-2 text-slate-500 font-medium text-center">
-                پایان برنامه‌های درسی روزانه در ساعت ۲۰:۰۰
+                پایان برنامه‌های درسی روزانه در ساعت ۲۰:۰۰ (برای افزودن سریع کلاس حل تمرین می‌توانید روی خانه‌های خالی جدول نیز کلیک کنید)
               </td>
             </tr>
           </tfoot>
@@ -179,15 +219,29 @@ export const Timetable: React.FC<TimetableProps> = ({ combination, stateNumber =
 interface CardProps {
   session: ClassSession;
   slot: TimeSlot;
+  onRemoveTA?: (id: string) => void;
 }
 
-const SingleClassCard: React.FC<CardProps> = ({ session, slot }) => {
-  // Determine color styling based on recurrence
+const SingleClassCard: React.FC<CardProps> = ({ session, slot, onRemoveTA }) => {
+  const isTA = Boolean(session.isTA);
   const isFixed = session.recurrence === 'ثابت';
   const isOdd = session.recurrence === 'فرد';
-  const isEven = session.recurrence === 'زوج';
 
-  const themeStyles = isFixed
+  const themeStyles = isTA
+    ? {
+        bg: 'bg-emerald-50/95',
+        border: 'border-emerald-500 hover:border-emerald-600',
+        badgeBg: 'bg-emerald-600 text-white',
+        badgeLabel:
+          session.recurrence === 'ثابت'
+            ? 'کلاس حل تمرین (هر هفته)'
+            : `کلاس حل تمرین (هفته ${session.recurrence})`,
+        textHeader: 'text-emerald-950',
+        subText: 'text-emerald-900',
+        metaText: 'text-emerald-700',
+        tagBg: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      }
+    : isFixed
     ? {
         bg: 'bg-blue-50/90',
         border: 'border-blue-400 hover:border-blue-500',
@@ -220,6 +274,9 @@ const SingleClassCard: React.FC<CardProps> = ({ session, slot }) => {
         tagBg: 'bg-purple-100 text-purple-800 border-purple-200',
       };
 
+  const hasCustomInstructor = session.instructor && session.instructor !== 'تعیین‌نشده';
+  const hasCustomRoom = session.room && session.room !== 'تعیین‌نشده';
+
   return (
     <div
       className={`w-full h-full min-h-[140px] rounded-xl border-2 ${themeStyles.border} ${themeStyles.bg} p-2.5 flex flex-col justify-between shadow-xs transition-all hover:shadow-md relative overflow-hidden`}
@@ -230,31 +287,53 @@ const SingleClassCard: React.FC<CardProps> = ({ session, slot }) => {
           <span
             className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${themeStyles.badgeBg} shadow-xs`}
           >
-            <CalendarRange className="w-3 h-3" />
+            {isTA ? <GraduationCap className="w-3 h-3" /> : <CalendarRange className="w-3 h-3" />}
             <span>{themeStyles.badgeLabel}</span>
           </span>
 
-          <span className={`text-[11px] font-extrabold ${themeStyles.metaText}`}>
-            {slot.timeRange}
-          </span>
+          <div className="flex items-center gap-1">
+            <span className={`text-[11px] font-extrabold ${themeStyles.metaText}`}>
+              {slot.timeRange}
+            </span>
+            {isTA && onRemoveTA && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveTA(session.id);
+                }}
+                title="حذف این کلاس حل تمرین"
+                className="p-1 rounded-md text-rose-500 hover:bg-rose-100 hover:text-rose-700 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Course Name */}
         <h4 className={`text-sm sm:text-base font-black ${themeStyles.textHeader} leading-tight mb-1`}>
-          {session.courseName}
+          {isTA ? `حل تمرین ${session.courseName}` : session.courseName}
         </h4>
 
         {/* Group and Instructor */}
         <div className="space-y-0.5 text-xs">
-          <div className="flex items-center gap-1 text-slate-700 font-semibold">
-            <Layers className="w-3 h-3 text-slate-500 shrink-0" />
-            <span>گروه {session.groupId}</span>
-          </div>
+          {!isTA && (
+            <div className="flex items-center gap-1 text-slate-700 font-semibold">
+              <Layers className="w-3 h-3 text-slate-500 shrink-0" />
+              <span>گروه {session.groupId}</span>
+            </div>
+          )}
 
-          <div className="flex items-center gap-1 text-slate-600">
-            <User className="w-3 h-3 text-slate-400 shrink-0" />
-            <span>استاد: {session.instructor}</span>
-          </div>
+          {(!isTA || hasCustomInstructor) && (
+            <div className="flex items-center gap-1 text-slate-600">
+              <User className="w-3 h-3 text-slate-400 shrink-0" />
+              <span>
+                {isTA ? 'مدرس: ' : 'استاد: '}
+                {session.instructor}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -262,7 +341,7 @@ const SingleClassCard: React.FC<CardProps> = ({ session, slot }) => {
       <div className="pt-1.5 mt-1 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
         <div className="flex items-center gap-1 text-slate-600 font-medium">
           <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-          <span>کلاس: {session.room}</span>
+          <span>کلاس: {hasCustomRoom ? session.room : 'تعیین‌نشده'}</span>
         </div>
         <span className="text-[10px] text-slate-500">{session.durationMinutes} دقیقه</span>
       </div>
@@ -270,11 +349,21 @@ const SingleClassCard: React.FC<CardProps> = ({ session, slot }) => {
   );
 };
 
-// Component for when two classes occur at the same slot (Odd week and Even week)
-const DualClassCard: React.FC<CardProps> = ({ session, slot }) => {
+// Component for when two classes occur at the same slot (Odd week and Even week, or TA + Class)
+const DualClassCard: React.FC<CardProps> = ({ session, slot, onRemoveTA }) => {
+  const isTA = Boolean(session.isTA);
   const isOdd = session.recurrence === 'فرد';
 
-  const themeStyles = isOdd
+  const themeStyles = isTA
+    ? {
+        bg: 'bg-emerald-50',
+        border: 'border-emerald-500',
+        badgeBg: 'bg-emerald-600 text-white',
+        badgeLabel:
+          session.recurrence === 'ثابت' ? 'حل تمرین' : `حل تمرین (${session.recurrence})`,
+        headerText: 'text-emerald-950',
+      }
+    : isOdd
     ? {
         bg: 'bg-amber-50',
         border: 'border-amber-400',
@@ -290,6 +379,9 @@ const DualClassCard: React.FC<CardProps> = ({ session, slot }) => {
         headerText: 'text-purple-950',
       };
 
+  const hasCustomInstructor = session.instructor && session.instructor !== 'تعیین‌نشده';
+  const hasCustomRoom = session.room && session.room !== 'تعیین‌نشده';
+
   return (
     <div
       className={`h-full min-h-[140px] rounded-xl border-2 ${themeStyles.border} ${themeStyles.bg} p-2 flex flex-col justify-between shadow-xs text-xs relative`}
@@ -299,21 +391,44 @@ const DualClassCard: React.FC<CardProps> = ({ session, slot }) => {
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${themeStyles.badgeBg}`}>
             {themeStyles.badgeLabel}
           </span>
-          <span className="text-[10px] font-bold text-slate-600">{slot.timeRange}</span>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] font-bold text-slate-600">{slot.timeRange}</span>
+            {isTA && onRemoveTA && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveTA(session.id);
+                }}
+                title="حذف این کلاس حل تمرین"
+                className="p-0.5 rounded text-rose-500 hover:bg-rose-100 hover:text-rose-700 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
         </div>
 
         <h5 className={`font-black ${themeStyles.headerText} text-xs leading-snug mb-1`}>
-          {session.courseName}
+          {isTA ? `حل تمرین ${session.courseName}` : session.courseName}
         </h5>
 
-        <div className="text-[11px] text-slate-700 font-semibold">گروه {session.groupId}</div>
-        <div className="text-[10px] text-slate-600 truncate">استاد: {session.instructor}</div>
+        {!isTA && (
+          <div className="text-[11px] text-slate-700 font-semibold">گروه {session.groupId}</div>
+        )}
+        {(!isTA || hasCustomInstructor) && (
+          <div className="text-[10px] text-slate-600 truncate">
+            {isTA ? 'مدرس: ' : 'استاد: '}
+            {session.instructor}
+          </div>
+        )}
       </div>
 
       <div className="pt-1 mt-1 border-t border-slate-200/60 flex items-center justify-between text-[10px] text-slate-500">
-        <span>کلاس: {session.room}</span>
-        <span>هفته‌درمیان</span>
+        <span>کلاس: {hasCustomRoom ? session.room : '—'}</span>
+        <span>{session.recurrence === 'ثابت' ? 'هر هفته' : 'هفته‌درمیان'}</span>
       </div>
     </div>
   );
 };
+

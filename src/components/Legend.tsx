@@ -28,6 +28,12 @@ export const Legend: React.FC = () => {
             <span className="w-3 h-3 rounded-md bg-purple-600 shadow-xs"></span>
             <span>جلسه هفته‌درمیان / هفته زوج (بنفش)</span>
           </div>
+
+          {/* Emerald: TA / Problem Solving */}
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-emerald-900 font-medium">
+            <span className="w-3 h-3 rounded-md bg-emerald-600 shadow-xs"></span>
+            <span>کلاس حل تمرین (سبز زمردی)</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200">

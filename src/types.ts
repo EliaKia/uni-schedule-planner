@@ -14,7 +14,21 @@ export interface ClassSession {
   endHour: number;   // e.g. 10, 12, 14, 16, 18, 20
   durationMinutes: number; // 120
   recurrence: SessionRecurrence; // 'ثابت' (هر هفته), 'فرد' (هفته فرد), 'زوج' (هفته زوج)
-  sessionTitle: string; // جلسه اول / جلسه دوم
+  sessionTitle: string; // جلسه اول / جلسه دوم / حل تمرین
+  isTA?: boolean;
+}
+
+export interface TASession {
+  id: string;
+  courseId: number;
+  courseName: string;
+  day: DayOfWeek;
+  startHour: number;
+  endHour: number;
+  recurrence: SessionRecurrence;
+  instructor?: string;
+  room?: string;
+  appliedStateIds: number[]; // Array of validCombination.id (1..12)
 }
 
 export interface CourseGroup {

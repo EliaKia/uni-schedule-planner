@@ -1,6 +1,10 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { calculateAllCombinations, filterCombinations } from './utils/scheduleCalculator';
-import { ScheduleFilterState } from './types';
+import {
+  calculateAllCombinations,
+  filterCombinations,
+  mergeTASessionsWithCombinations,
+} from './utils/scheduleCalculator';
+import { DayOfWeek, ScheduleFilterState, TASession } from './types';
 import { Header } from './components/Header';
 import { Legend } from './components/Legend';
 import { NavigationControls } from './components/NavigationControls';
@@ -9,13 +13,39 @@ import { SelectedGroupsDetails } from './components/SelectedGroupsDetails';
 import { ConflictAuditModal } from './components/ConflictAuditModal';
 import { FilterPanel } from './components/FilterPanel';
 import { CompareModal } from './components/CompareModal';
+import { AddTAModal } from './components/AddTAModal';
 import { RotateCcw, SearchX } from 'lucide-react';
+
+const TA_STORAGE_KEY = 'uni_schedule_ta_sessions_v1';
 
 export default function App() {
   // Pre-calculate all combinations (all 16 combinations, partitioned into valid and invalid)
-  const { allCombinations, validCombinations, invalidCombinations } = useMemo(() => {
+  const { allCombinations, validCombinations: baseValidCombinations, invalidCombinations } = useMemo(() => {
     return calculateAllCombinations();
   }, []);
+
+  // User-added TA (Problem Solving) sessions persisted in localStorage
+  const [taSessions, setTaSessions] = useState<TASession[]>(() => {
+    try {
+      const saved = localStorage.getItem(TA_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TA_STORAGE_KEY, JSON.stringify(taSessions));
+    } catch {
+      // ignore storage errors
+    }
+  }, [taSessions]);
+
+  // Valid combinations with user TA sessions merged in
+  const validCombinations = useMemo(() => {
+    return mergeTASessionsWithCombinations(baseValidCombinations, taSessions);
+  }, [baseValidCombinations, taSessions]);
 
   // Filter state (course instructors preferences + free slots)
   const [filterState, setFilterState] = useState<ScheduleFilterState>({
@@ -32,6 +62,8 @@ export default function App() {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState<boolean>(false);
   const [isCompareModalOpen, setIsCompareModalOpen] = useState<boolean>(false);
+  const [isAddTAModalOpen, setIsAddTAModalOpen] = useState<boolean>(false);
+  const [quickAddSlot, setQuickAddSlot] = useState<{ day?: DayOfWeek; startHour?: number }>({});
 
   // Keep currentIndex in bounds when filters change
   useEffect(() => {
@@ -54,6 +86,40 @@ export default function App() {
     });
     setCurrentIndex(0);
   };
+
+  // TA Session handlers
+  const handleAddTASession = useCallback((newTA: TASession) => {
+    setTaSessions((prev) => {
+      const existingIdx = prev.findIndex(
+        (ta) =>
+          ta.courseId === newTA.courseId &&
+          ta.day === newTA.day &&
+          ta.startHour === newTA.startHour
+      );
+      if (existingIdx !== -1) {
+        const updated = [...prev];
+        const mergedStates = Array.from(
+          new Set([...updated[existingIdx].appliedStateIds, ...newTA.appliedStateIds])
+        ).sort((a, b) => a - b);
+        updated[existingIdx] = {
+          ...newTA,
+          id: updated[existingIdx].id,
+          appliedStateIds: mergedStates,
+        };
+        return updated;
+      }
+      return [...prev, newTA];
+    });
+  }, []);
+
+  const handleRemoveTASession = useCallback((id: string) => {
+    setTaSessions((prev) => prev.filter((ta) => ta.id !== id));
+  }, []);
+
+  const handleOpenAddTAModal = useCallback((day?: DayOfWeek, startHour?: number) => {
+    setQuickAddSlot({ day, startHour });
+    setIsAddTAModalOpen(true);
+  }, []);
 
   // Navigation handlers
   const handleNext = useCallback(() => {
@@ -98,7 +164,7 @@ export default function App() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
-      if (isAuditModalOpen || isCompareModalOpen) {
+      if (isAuditModalOpen || isCompareModalOpen || isAddTAModalOpen) {
         return;
       }
 
@@ -113,12 +179,13 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNext, handlePrev, isAuditModalOpen, isCompareModalOpen]);
+  }, [handleNext, handlePrev, isAuditModalOpen, isCompareModalOpen, isAddTAModalOpen]);
 
-  // Find 0-based index of current combination in the full validCombinations list for comparison reference
+  // Find 0-based index of current combination in the full validCombinations list (0..11)
   const currentValidIndex = currentCombination
     ? validCombinations.findIndex((c) => c.id === currentCombination.id)
     : 0;
+  const activeValidStateNumber = currentValidIndex >= 0 ? currentValidIndex + 1 : 1;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 pb-16">
@@ -169,7 +236,7 @@ export default function App() {
           </div>
         ) : (
           <>
-            {/* State Controls (حالت 1 / N, Download Image, Compare, Prev/Next) */}
+            {/* State Controls (حالت 1 / N, Add TA, Download Image, Compare, Prev/Next) */}
             {currentCombination && (
               <NavigationControls
                 currentIndex={currentIndex}
@@ -179,6 +246,8 @@ export default function App() {
                 onPrev={handlePrev}
                 onSelectIndex={handleSelectIndex}
                 onOpenCompare={() => setIsCompareModalOpen(true)}
+                onOpenAddTA={() => handleOpenAddTAModal()}
+                taSessionsCount={taSessions.length}
                 isFiltered={hasActiveFilters}
               />
             )}
@@ -191,7 +260,7 @@ export default function App() {
                     جدول هفتگی — برنامه شماره {currentIndex + 1}
                     {hasActiveFilters && (
                       <span className="text-xs font-normal text-slate-500 mr-2">
-                        (کد اصلی ترکیب: #{currentCombination.combinationIndex})
+                        (حالت اصلی: {activeValidStateNumber} از ۱۲)
                       </span>
                     )}
                   </h2>
@@ -201,7 +270,9 @@ export default function App() {
                 </div>
                 <Timetable
                   combination={currentCombination}
-                  stateNumber={currentCombination.combinationIndex}
+                  stateNumber={activeValidStateNumber}
+                  onQuickAddTA={(day, startHour) => handleOpenAddTAModal(day, startHour)}
+                  onRemoveTASession={handleRemoveTASession}
                 />
               </div>
             )}
@@ -213,6 +284,19 @@ export default function App() {
           </>
         )}
       </main>
+
+      {/* Add & Manage TA Classes Modal */}
+      <AddTAModal
+        isOpen={isAddTAModalOpen}
+        onClose={() => setIsAddTAModalOpen(false)}
+        validCombinations={validCombinations}
+        activeValidStateNumber={activeValidStateNumber}
+        taSessions={taSessions}
+        onAddTASession={handleAddTASession}
+        onRemoveTASession={handleRemoveTASession}
+        initialDay={quickAddSlot.day}
+        initialStartHour={quickAddSlot.startHour}
+      />
 
       {/* Side-by-Side Comparison Modal */}
       <CompareModal
@@ -234,4 +318,5 @@ export default function App() {
     </div>
   );
 }
+
 

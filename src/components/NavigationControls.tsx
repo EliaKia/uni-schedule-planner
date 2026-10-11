@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, ChevronLeft, CalendarCheck, Columns2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, CalendarCheck, Columns2, PlusCircle } from 'lucide-react';
 import { ScheduleCombination } from '../types';
 import { DownloadImageButton } from './DownloadImageButton';
 
@@ -11,6 +11,8 @@ interface NavigationControlsProps {
   onPrev: () => void;
   onSelectIndex: (index: number) => void;
   onOpenCompare: () => void;
+  onOpenAddTA: () => void;
+  taSessionsCount?: number;
   isFiltered?: boolean;
 }
 
@@ -22,6 +24,8 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
   onPrev,
   onSelectIndex,
   onOpenCompare,
+  onOpenAddTA,
+  taSessionsCount = 0,
   isFiltered = false,
 }) => {
   const currentDisplayNumber = currentIndex + 1;
@@ -49,8 +53,24 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
           </span>
         </div>
 
-        {/* Action Buttons: Download PNG, Compare, Prev/Next */}
+        {/* Action Buttons: Add TA Class, Download PNG, Compare, Prev/Next */}
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-start lg:justify-end">
+          {/* Add TA Class Button */}
+          <button
+            type="button"
+            onClick={onOpenAddTA}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 shadow-xs transition-all cursor-pointer"
+            title="افزودن کلاس حل تمرین (TA) به برنامه هفتگی"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>افزودن کلاس حل تمرین</span>
+            {taSessionsCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-white text-emerald-800 font-black text-[11px]">
+                {taSessionsCount}
+              </span>
+            )}
+          </button>
+
           {/* Download Image Button */}
           <DownloadImageButton
             targetElementId="timetable-export-container"
